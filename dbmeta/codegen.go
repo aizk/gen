@@ -140,6 +140,7 @@ func (c *Config) GetTemplate(genTemplate *GenTemplate) (*template.Template, erro
 		baseName == "code_dao_gorm.md.tmpl" ||
 		baseName == "code_http.md.tmpl" {
 
+		// 这几个模板名字都是写死的
 		operations := []string{"add", "delete", "get", "getall", "update"}
 		for _, op := range operations {
 			var filename string
@@ -553,9 +554,10 @@ func (c *Config) WriteTemplate(genTemplate *GenTemplate, data map[string]interfa
 		data[key] = value
 	}
 
-	dir := filepath.Dir(outputFile)
-	parent := filepath.Base(dir)
+	dir := filepath.Dir(outputFile) // 拿到目录路径
+	parent := filepath.Base(dir) // 拿到目录
 
+	// 给 data 加一些新字段
 	data["File"] = outputFile
 	data["Dir"] = dir
 	data["Parent"] = parent
@@ -588,17 +590,20 @@ func (c *Config) WriteTemplate(genTemplate *GenTemplate, data map[string]interfa
 	if err != nil {
 		return fmt.Errorf("error in loading %s template, error: %v", genTemplate.Name, err)
 	}
+	// 使用 buf 渲染模板
 	var buf bytes.Buffer
 	err = rt.Execute(&buf, data)
 	if err != nil {
 		return fmt.Errorf("error in rendering %s: %s", genTemplate.Name, err.Error())
 	}
 
+	// 格式化
 	fileContents, err := c.format(genTemplate, buf.Bytes(), outputFile)
 	if err != nil {
 		return fmt.Errorf("error writing %s - error: %v", outputFile, err)
 	}
 
+	// 写文件
 	err = ioutil.WriteFile(outputFile, fileContents, 0777)
 	if err != nil {
 		return fmt.Errorf("error writing %s - error: %v", outputFile, err)

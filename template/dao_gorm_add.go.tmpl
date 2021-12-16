@@ -1,12 +1,14 @@
 {{define "dao_gorm_add.go.tmpl"}}
-// Add{{.StructName}} is a function to add a single record to {{.TableName}} table in the {{.DatabaseName}} database
-// error - ErrInsertFailed, db save call failed
-func Add{{.StructName}}(ctx context.Context, record *{{.modelPackageName}}.{{.StructName}}) (result *{{.modelPackageName}}.{{.StructName}}, RowsAffected int64, err error) {
-    db := DB.Create(record)
-	if err = db.Error; err != nil {
-	    return nil, -1, ErrInsertFailed
-	}
-
-	return record, db.RowsAffected, nil
+// Create{{.StructName}} is a function to add a single record to {{.TableName}} table in the {{.DatabaseName}} database
+// error - db create call failed
+func Create{{.StructName}}(ctx context.Context, db *gorm.DB, record *{{.StructName}}) (insertID int64, err error) {
+    result := db.Create(record)
+		err = result.Error
+		if err != nil {
+			err = errors.Wrap(err, "[Create{{.StructName}}]")
+	    return
+		}
+		insertID = record.ID
+		return
 }
 {{end}}

@@ -42,6 +42,7 @@ var (
 	fileNamingTemplate  = goopt.String([]string{"--file_naming"}, "{{.}}", "file_naming template to name files")
 
 	daoPackageName  = goopt.String([]string{"--dao"}, "dao", "name to set for dao package")
+	servicePackageName  = goopt.String([]string{"--service"}, "service", "name to set for service package")
 	apiPackageName  = goopt.String([]string{"--api"}, "api", "name to set for api package")
 	grpcPackageName = goopt.String([]string{"--grpc"}, "grpc", "name to set for grpc package")
 	outDir          = goopt.String([]string{"--out"}, ".", "output dir")
@@ -68,6 +69,7 @@ var (
 	addDBAnnotation = goopt.Flag([]string{"--db"}, []string{}, "Add db annotations (tags)", "")
 	useGureguTypes  = goopt.Flag([]string{"--guregu"}, []string{}, "Add guregu null types", "")
 
+	usingTableNameDir    = goopt.Flag([]string{"--using-table-name-dir"}, []string{}, "Copy regeneration templates to project directory", "")
 	copyTemplates    = goopt.Flag([]string{"--copy-templates"}, []string{}, "Copy regeneration templates to project directory", "")
 	modGenerate      = goopt.Flag([]string{"--mod"}, []string{}, "Generate go.mod in output dir", "")
 	makefileGenerate = goopt.Flag([]string{"--makefile"}, []string{}, "Generate Makefile in output dir", "")
@@ -113,6 +115,7 @@ git fetch up
 	goopt.Parse(nil)
 }
 
+// 对外保存模板
 func saveTemplates() {
 	fmt.Printf("Saving templates to %s\n", *saveTemplateDir)
 	err := SaveAssets(*saveTemplateDir, baseTemplates)
@@ -420,6 +423,7 @@ func loadDefaultDBMappings(conf *dbmeta.Config) error {
 	return nil
 }
 
+// 执行用户自定义脚本
 func executeCustomScript(conf *dbmeta.Config) error {
 	fmt.Printf("Executing script %s\n", *execCustomScript)
 
@@ -489,14 +493,16 @@ func execTemplate(conf *dbmeta.Config, genTemplate *dbmeta.GenTemplate, data map
 	return nil
 }
 
+// 生成数据
 func generate(conf *dbmeta.Config) error {
 	var err error
 
 	*jsonNameFormat = strings.ToLower(*jsonNameFormat)
 	*xmlNameFormat = strings.ToLower(*xmlNameFormat)
 	modelDir := filepath.Join(*outDir, *modelPackageName)
-	apiDir := filepath.Join(*outDir, *apiPackageName)
-	daoDir := filepath.Join(*outDir, *daoPackageName)
+	apiDir := filepath.Join(*outDir, *apiPackageName) // --api 参数
+	daoDir := filepath.Join(*outDir, *daoPackageName) // --dao 参数
+	serviceDir := filepath.Join(*outDir, *servicePackageName)
 
 	err = os.MkdirAll(*outDir, 0777)
 	if err != nil && !*overwrite {
@@ -504,12 +510,14 @@ func generate(conf *dbmeta.Config) error {
 		return err
 	}
 
+	// 创建 model 目录
 	err = os.MkdirAll(modelDir, 0777)
 	if err != nil && !*overwrite {
 		fmt.Print(au.Red(fmt.Sprintf("unable to create modelDir: %s error: %v\n", modelDir, err)))
 		return err
 	}
 
+	// 创建文件夹
 	if *daoGenerate {
 		err = os.MkdirAll(daoDir, 0777)
 		if err != nil && !*overwrite {
@@ -533,6 +541,7 @@ func generate(conf *dbmeta.Config) error {
 	var DaoInitTmpl *dbmeta.GenTemplate
 	var GoModuleTmpl *dbmeta.GenTemplate
 
+	// 一定会加载 api.go 模板？
 	if ControllerTmpl, err = LoadTemplate("api.go.tmpl"); err != nil {
 		fmt.Print(au.Red(fmt.Sprintf("Error loading template %v\n", err)))
 		return err
@@ -558,6 +567,7 @@ func generate(conf *dbmeta.Config) error {
 		}
 	}
 
+	// 不选也会加载模板...
 	if GoModuleTmpl, err = LoadTemplate("gomod.tmpl"); err != nil {
 		fmt.Print(au.Red(fmt.Sprintf("Error loading template %v\n", err)))
 		return err
@@ -576,19 +586,38 @@ func generate(conf *dbmeta.Config) error {
 	*xmlNameFormat = strings.ToLower(*xmlNameFormat)
 
 	// generate go files for each table
+	// 给每一个表生成模板
 	for tableName, tableInfo := range tableInfos {
 
 		if len(tableInfo.Fields) == 0 {
 			if *verbose {
 				fmt.Printf("[%d] Table: %s - No Fields Available\n", tableInfo.Index, tableName)
 			}
-
 			continue
+		}
+
+		tableDaoDir := daoDir
+		tableModelDir := modelDir
+		tableServiceDir := serviceDir
+
+		// 判断是否开启表面为目录
+		if *usingTableNameDir {
+			tableDaoDir = filepath.Join(tableDaoDir, tableName) // zeus_position
+			tableModelDir = filepath.Join(tableModelDir, tableName)
+			tableServiceDir = filepath.Join(tableServiceDir, tableName)
+			os.MkdirAll(tableDaoDir, 0777)
+			os.MkdirAll(tableModelDir, 0777)
+			os.MkdirAll(tableServiceDir, 0777)
 		}
 
 		modelInfo := conf.CreateContextForTableFile(tableInfo)
 
-		modelFile := filepath.Join(modelDir, CreateGoSrcFileName(tableName))
+		//modelFile := filepath.Join(tableModelDir, CreateGoSrcFileName(tableName, "model"))
+		name := CreateGoSrcFileName(tableName, "model")
+		if *usingTableNameDir {
+			name = "gen_model.go"
+		}
+		modelFile := filepath.Join(tableModelDir, name)
 		err = conf.WriteTemplate(ModelTmpl, modelInfo, modelFile)
 		if err != nil {
 			fmt.Print(au.Red(fmt.Sprintf("Error writing file: %v\n", err)))
@@ -596,7 +625,7 @@ func generate(conf *dbmeta.Config) error {
 		}
 
 		if *restAPIGenerate {
-			restFile := filepath.Join(apiDir, CreateGoSrcFileName(tableName))
+			restFile := filepath.Join(apiDir, CreateGoSrcFileName(tableName, "rest"))
 			err = conf.WriteTemplate(ControllerTmpl, modelInfo, restFile)
 			if err != nil {
 				fmt.Print(au.Red(fmt.Sprintf("Error writing file: %v\n", err)))
@@ -607,7 +636,12 @@ func generate(conf *dbmeta.Config) error {
 
 		if *daoGenerate {
 			// write dao
-			outputFile := filepath.Join(daoDir, CreateGoSrcFileName(tableName))
+			name = CreateGoSrcFileName(tableName, "dao")
+			if *usingTableNameDir {
+				name = "gen_crud.go"
+			}
+			//outputFile := filepath.Join(tableDaoDir, CreateGoSrcFileName(tableName, "dao"))
+			outputFile := filepath.Join(tableDaoDir, name)
 			err = conf.WriteTemplate(DaoTmpl, modelInfo, outputFile)
 			if err != nil {
 				fmt.Print(au.Red(fmt.Sprintf("Error writing file: %v\n", err)))
@@ -624,7 +658,10 @@ func generate(conf *dbmeta.Config) error {
 		}
 	}
 
+	// 这代码写得属实有点拉胯...
 	if *daoGenerate {
+		// 使用 dao 模板生成
+		// dao_base.go 是个附属文件
 		err = conf.WriteTemplate(DaoInitTmpl, data, filepath.Join(daoDir, "dao_base.go"))
 		if err != nil {
 			fmt.Print(au.Red(fmt.Sprintf("Error writing file: %v\n", err)))
@@ -1123,7 +1160,7 @@ func WriteNewFile(fpath string, in io.Reader) error {
 }
 
 // CreateGoSrcFileName ensures name doesnt clash with go naming conventions like _test.go
-func CreateGoSrcFileName(tableName string) string {
+func CreateGoSrcFileName(tableName, type_ string) string {
 	name := dbmeta.Replace(*fileNamingTemplate, tableName)
 	// name := inflection.Singular(tableName)
 
@@ -1131,10 +1168,11 @@ func CreateGoSrcFileName(tableName string) string {
 		name = name[0 : len(name)-5]
 		name = name + "_tst"
 	}
-	return name + ".go"
+	return fmt.Sprintf("gen_%s_%s.go", name, type_)
 }
 
 // LoadTemplate return template from template dir, falling back to the embedded templates
+// 加载模板文件
 func LoadTemplate(filename string) (tpl *dbmeta.GenTemplate, err error) {
 	baseName := filepath.Base(filename)
 	// fmt.Printf("LoadTemplate: %s / %s\n", filename, baseName)
