@@ -1,0 +1,16 @@
+{{define "service_getall.go.tmpl"}}
+
+type Get{{.StructName}}ListReq struct {
+    {{range .TableInfo.CodeFields}}
+        {{- .GoFieldName }} {{ .GoFieldType }} `{{.JSONAnnotation}}`
+    {{end}}
+    PageParam *page.PageParam
+}
+
+func Get{{.StructName}}List(ctx context.Context, req *Get{{.StructName}}ListReq) (items []*{{.TableName}}.{{.StructName}}, total int64, err error) {
+    // TODO get list
+
+    // TODO get count
+    return
+}
+{{end}}

@@ -1,0 +1,18 @@
+{{define "service_add.go.tmpl"}}
+
+type Create{{.StructName}}Req struct {
+    {{range .TableInfo.CodeFields}}
+        {{- .GoFieldName }} {{ .GoFieldType }} `{{.JSONAnnotation}}`
+    {{end}}
+}
+
+func Create{{.StructName}}(ctx context.Context, req *Create{{.StructName}}Req) (record *{{.TableName}}.{{.StructName}}, err error) {
+    record = &{{.TableName}}.{{.StructName}}{
+        {{range .TableInfo.CodeFields}}
+            {{- .GoFieldName }}: req.{{- .GoFieldName }},
+        {{end}}
+   }
+    _, err = {{.TableName}}.Create{{.StructName}}(ctx, resource.GormDB, record)
+    return
+}
+{{end}}

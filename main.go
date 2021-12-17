@@ -69,12 +69,14 @@ var (
 	addDBAnnotation = goopt.Flag([]string{"--db"}, []string{}, "Add db annotations (tags)", "")
 	useGureguTypes  = goopt.Flag([]string{"--guregu"}, []string{}, "Add guregu null types", "")
 
+	// 是否开启表名为目录
 	usingTableNameDir    = goopt.Flag([]string{"--using-table-name-dir"}, []string{}, "Copy regeneration templates to project directory", "")
 	copyTemplates    = goopt.Flag([]string{"--copy-templates"}, []string{}, "Copy regeneration templates to project directory", "")
 	modGenerate      = goopt.Flag([]string{"--mod"}, []string{}, "Generate go.mod in output dir", "")
 	makefileGenerate = goopt.Flag([]string{"--makefile"}, []string{}, "Generate Makefile in output dir", "")
 	serverGenerate   = goopt.Flag([]string{"--server"}, []string{}, "Generate server app output dir", "")
 	daoGenerate      = goopt.Flag([]string{"--generate-dao"}, []string{}, "Generate dao functions", "")
+	serviceGenerate      = goopt.Flag([]string{"--generate-service"}, []string{}, "Generate dao functions", "")
 	projectGenerate  = goopt.Flag([]string{"--generate-proj"}, []string{}, "Generate project readme and gitignore", "")
 	restAPIGenerate  = goopt.Flag([]string{"--rest"}, []string{}, "Enable generating RESTful api", "")
 	runGoFmt         = goopt.Flag([]string{"--run-gofmt"}, []string{}, "run gofmt on output dir", "")
@@ -537,12 +539,17 @@ func generate(conf *dbmeta.Config) error {
 	var ModelBaseTmpl *dbmeta.GenTemplate
 	var ControllerTmpl *dbmeta.GenTemplate
 	var DaoTmpl *dbmeta.GenTemplate
+	var ServiceTmpl *dbmeta.GenTemplate
 
 	var DaoInitTmpl *dbmeta.GenTemplate
 	var GoModuleTmpl *dbmeta.GenTemplate
 
 	// 一定会加载 api.go 模板？
 	if ControllerTmpl, err = LoadTemplate("api.go.tmpl"); err != nil {
+		fmt.Print(au.Red(fmt.Sprintf("Error loading template %v\n", err)))
+		return err
+	}
+	if ServiceTmpl, err = LoadTemplate("service.go.tmpl"); err != nil {
 		fmt.Print(au.Red(fmt.Sprintf("Error loading template %v\n", err)))
 		return err
 	}
@@ -553,7 +560,7 @@ func generate(conf *dbmeta.Config) error {
 			return err
 		}
 		if DaoInitTmpl, err = LoadTemplate("dao_gorm_init.go.tmpl"); err != nil {
-			fmt.Print(au.Red(fmt.Sprintf("Error loading template %v\n", err)))
+			fmt.Print(au.Red(fmt.Sprintf("Error loading template %v\n", err)), DaoInitTmpl)
 			return err
 		}
 	} else {
@@ -578,7 +585,7 @@ func generate(conf *dbmeta.Config) error {
 		return err
 	}
 	if ModelBaseTmpl, err = LoadTemplate("model_base.go.tmpl"); err != nil {
-		fmt.Print(au.Red(fmt.Sprintf("Error loading template %v\n", err)))
+		fmt.Print(au.Red(fmt.Sprintf("Error loading template %v\n", err)), ModelBaseTmpl)
 		return err
 	}
 
@@ -600,7 +607,7 @@ func generate(conf *dbmeta.Config) error {
 		tableModelDir := modelDir
 		tableServiceDir := serviceDir
 
-		// 判断是否开启表面为目录
+		// 判断是否开启表名为目录
 		if *usingTableNameDir {
 			tableDaoDir = filepath.Join(tableDaoDir, tableName) // zeus_position
 			tableModelDir = filepath.Join(tableModelDir, tableName)
@@ -625,13 +632,17 @@ func generate(conf *dbmeta.Config) error {
 		}
 
 		if *restAPIGenerate {
+			// api 接口生成
+			name = CreateGoSrcFileName(tableName, "dao")
+			if *usingTableNameDir {
+				name = "gen_api.go"
+			}
 			restFile := filepath.Join(apiDir, CreateGoSrcFileName(tableName, "rest"))
 			err = conf.WriteTemplate(ControllerTmpl, modelInfo, restFile)
 			if err != nil {
 				fmt.Print(au.Red(fmt.Sprintf("Error writing file: %v\n", err)))
 				os.Exit(1)
 			}
-
 		}
 
 		if *daoGenerate {
@@ -648,32 +659,47 @@ func generate(conf *dbmeta.Config) error {
 				os.Exit(1)
 			}
 		}
+
+		if *serviceGenerate {
+			// write dao
+			name = CreateGoSrcFileName(tableName, "service")
+			if *usingTableNameDir {
+				name = "gen_crud_service.go"
+			}
+			//outputFile := filepath.Join(tableDaoDir, CreateGoSrcFileName(tableName, "dao"))
+			outputFile := filepath.Join(tableServiceDir, name)
+			err = conf.WriteTemplate(ServiceTmpl, modelInfo, outputFile)
+			if err != nil {
+				fmt.Print(au.Red(fmt.Sprintf("Error writing file: %v\n", err)))
+				os.Exit(1)
+			}
+		}
 	}
 
 	data := map[string]interface{}{}
 
-	if *restAPIGenerate {
-		if err = generateRestBaseFiles(conf, apiDir); err != nil {
-			return err
-		}
-	}
+	//if *restAPIGenerate {
+	//	if err = generateRestBaseFiles(conf, apiDir); err != nil {
+	//		return err
+	//	}
+	//}
 
 	// 这代码写得属实有点拉胯...
-	if *daoGenerate {
-		// 使用 dao 模板生成
-		// dao_base.go 是个附属文件
-		err = conf.WriteTemplate(DaoInitTmpl, data, filepath.Join(daoDir, "dao_base.go"))
-		if err != nil {
-			fmt.Print(au.Red(fmt.Sprintf("Error writing file: %v\n", err)))
-			os.Exit(1)
-		}
-	}
+	//if *daoGenerate {
+	//	// 使用 dao 模板生成
+	//	// dao_base.go 是个附属文件
+	//	err = conf.WriteTemplate(DaoInitTmpl, data, filepath.Join(daoDir, "dao_base.go"))
+	//	if err != nil {
+	//		fmt.Print(au.Red(fmt.Sprintf("Error writing file: %v\n", err)))
+	//		os.Exit(1)
+	//	}
+	//}
 
-	err = conf.WriteTemplate(ModelBaseTmpl, data, filepath.Join(modelDir, "model_base.go"))
-	if err != nil {
-		fmt.Print(au.Red(fmt.Sprintf("Error writing file: %v\n", err)))
-		os.Exit(1)
-	}
+	//err = conf.WriteTemplate(ModelBaseTmpl, data, filepath.Join(modelDir, "model_base.go"))
+	//if err != nil {
+	//	fmt.Print(au.Red(fmt.Sprintf("Error writing file: %v\n", err)))
+	//	os.Exit(1)
+	//}
 
 	if *modGenerate {
 		err = conf.WriteTemplate(GoModuleTmpl, data, filepath.Join(*outDir, "go.mod"))

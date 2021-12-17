@@ -1,0 +1,15 @@
+package {{.TableName}}
+
+import (
+    "context"
+    "{{.module}}/library/resource"
+    "{{.module}}/library/util/page"
+    "{{.module}}/model/{{.TableName}}"
+    "time"
+)
+
+{{template "service_get.go.tmpl" .}}
+{{template "service_getall.go.tmpl" .}}
+{{template "service_add.go.tmpl" .}}
+{{template "service_update.go.tmpl" .}}
+{{template "service_delete.go.tmpl" .}}

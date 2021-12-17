@@ -134,6 +134,7 @@ func (c *Config) GetTemplate(genTemplate *GenTemplate) (*template.Template, erro
 	}
 
 	if baseName == "api.go.tmpl" ||
+	    baseName == "service.go.tmpl" ||
 		baseName == "dao_gorm.go.tmpl" ||
 		baseName == "dao_sqlx.go.tmpl" ||
 		baseName == "code_dao_sqlx.md.tmpl" ||
@@ -162,6 +163,9 @@ func (c *Config) GetTemplate(genTemplate *GenTemplate) (*template.Template, erro
 			}
 			if baseName == "code_http.md.tmpl" {
 				filename = fmt.Sprintf("api_%s.go.tmpl", op)
+			}
+			if baseName == "service.go.tmpl" {
+				filename = fmt.Sprintf("service_%s.go.tmpl", op)
 			}
 
 			var subTemplate *GenTemplate
@@ -600,7 +604,7 @@ func (c *Config) WriteTemplate(genTemplate *GenTemplate, data map[string]interfa
 	// 格式化
 	fileContents, err := c.format(genTemplate, buf.Bytes(), outputFile)
 	if err != nil {
-		return fmt.Errorf("error writing %s - error: %v", outputFile, err)
+		return fmt.Errorf("error writing %s - error: %v - data: %s", outputFile, err, string(buf.Bytes()))
 	}
 
 	// 写文件

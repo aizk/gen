@@ -1,0 +1,17 @@
+{{define "service_update.go.tmpl"}}
+
+type Update{{.StructName}}Req struct {
+    {{range .TableInfo.CodeFields}}
+        {{- .GoFieldName }} {{ .GoFieldType }} `{{.JSONAnnotation}}`
+    {{end}}
+}
+
+func Update{{.StructName}}(ctx context.Context, req *Update{{.StructName}}Req) (err error) {
+    _, err = {{.TableName}}.Update{{.StructName}}(ctx, resource.GormDB, &{{.TableName}}.{{.StructName}}{
+        {{range .TableInfo.CodeFields}}
+            {{- .GoFieldName }}: req.{{- .GoFieldName }},
+        {{end}}
+    })
+    return
+}
+{{end}}

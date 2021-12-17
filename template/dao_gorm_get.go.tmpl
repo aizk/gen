@@ -1,7 +1,7 @@
 {{define "dao_gorm_get.go.tmpl"}}
 // Get{{.StructName}} is a function to get a single record from the {{.TableName}} table in the {{.DatabaseName}} database
 // error - gorm.ErrRecordNotFound, db Find error
-func Get{{.StructName}}(ctx context.Context, db *gorm.DB, {{range $field := .TableInfo.CodeFields}} {{ if $field.PrimaryKeyArgName }} {{$field.PrimaryKeyArgName}} {{$field.GoFieldType}},{{end}}{{end -}}) (record *{{.modelPackageName}}.{{.StructName}}, err error) {
+func Get{{.StructName}}(ctx context.Context, db *gorm.DB, {{range $field := .TableInfo.CodeFields}} {{ if $field.PrimaryKeyArgName }} {{$field.PrimaryKeyArgName}} {{$field.GoFieldType}},{{end}}{{end -}}) (record *{{.StructName}}, err error) {
 	record = &{{.StructName}}{}
 	err = db.First(record, {{range $field := .TableInfo.CodeFields}} {{ if $field.PrimaryKeyArgName }} {{$field.PrimaryKeyArgName}},{{end}}{{end -}}).Error
 	if err != nil {

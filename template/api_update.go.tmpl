@@ -1,60 +1,24 @@
 {{define "api_update.go.tmpl"}}
 // Update{{.StructName}} Update a single record from {{.TableName}} table in the {{.DatabaseName}} database
-// @Summary Update an record in table {{.TableName}}
-// @Description Update a single record from {{.TableName}} table in the {{.DatabaseName}} database
-// @Tags {{.StructName}}
-// @Accept  json
-// @Produce  json
-{{range $field := .TableInfo.CodeFields}}{{ if $field.PrimaryKeyArgName}}// @Param  {{ $field.PrimaryKeyArgName }} path {{ $field.SQLMapping.SwaggerType }} true "{{ $field.ColumnMeta.Name }}"{{end}}{{end}}
-// @Param  {{.StructName}} body {{.modelPackageName}}.{{.StructName}} true "Update {{.StructName}} record"
-// @Success 200 {object} {{.modelPackageName}}.{{.StructName}}
-// @Failure 400 {object} {{.apiPackageName}}.HTTPError
-// @Failure 404 {object} {{.apiPackageName}}.HTTPError
-// @Router /{{.StructName | toLower}}{{range $field := .TableInfo.CodeFields}}{{ if $field.PrimaryKeyArgName}}/{ {{- $field.PrimaryKeyArgName -}} }{{end}}{{end}} [put]
-// echo '{{ToJSON .TableInfo.Instance 0}}' | http PUT "{{$.serverScheme}}://{{$.serverHost}}{{if ne $.serverPort 80}}:{{$.serverPort}}{{end}}/{{.StructName | toLower}}{{range $field := .TableInfo.CodeFields}}{{ if $field.PrimaryKeyArgName}}/{{ $field.FakeData }}{{end}}{{end}}"  X-Api-User:user123
-func Update{{.StructName}}(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	ctx := initializeContext(r)
-{{range $field := .TableInfo.CodeFields}}
-{{ if $field.PrimaryKeyArgName }}
-
-	{{$field.PrimaryKeyArgName}}, err := {{$field.PrimaryKeyFieldParser}}(ps, "{{$field.PrimaryKeyArgName}}")
+func Update{{.StructName}}(ctx context.Context, req ghttp.Request) ghttp.Response {
+	// bind json
+    request := &{{.TableName}}.Update{{.StructName}}Req{}
+    err := param.BindJSONAndValid(req, request)
 	if err != nil {
-		returnError(ctx, w, r, err)
-		return
-	}
-{{end}}{{end}}
-
-	{{.StructName | toLower}} := &{{.modelPackageName}}.{{.StructName}}{}
-	if err := readJSON(r, {{.StructName | toLower}}); err != nil {
-		returnError(ctx, w, r, {{.daoPackageName}}.ErrBadParams)
-		return
+		return response.NewParamErrorResponse(ctx, req, err)
 	}
 
-   if err := {{.StructName | toLower}}.BeforeSave(); err != nil {
-      returnError(ctx, w, r, {{.daoPackageName}}.ErrBadParams)
-   }
+    if request.ID == 0 {
+        return response.NewParamErrorResponse(ctx, req, errors.New("id is required"))
+    }
 
-   {{.StructName | toLower}}.Prepare()
+	// TODO param validation
 
-   if err := {{.StructName | toLower}}.Validate( {{.modelPackageName}}.Update); err != nil {
-      returnError(ctx, w, r, {{.daoPackageName}}.ErrBadParams)
-      return
-   }
-
-	if err := ValidateRequest(ctx, r, "{{.TableName}}", {{.modelPackageName}}.Update); err != nil{
-		returnError(ctx, w, r, err)
-		return
-	}
-
-	{{.StructName | toLower}}, _, err = {{.daoPackageName}}.Update{{.StructName}}(ctx,
-	{{range $field := .TableInfo.CodeFields}} {{ if $field.PrimaryKeyArgName }} {{$field.PrimaryKeyArgName}},{{end}}{{end}}
-	{{.StructName | toLower}})
-	if err != nil {
-	    returnError(ctx, w, r, err)
-   	    return
-	}
-
-	writeJSON(ctx, w, {{.StructName | toLower}})
+    err = {{.TableName}}.Update{{.StructName}}(ctx, request)
+    if err != nil {
+        return response.NewCommonErrorResponse(ctx, req, err)
+    }
+    return response.NewJSONResponse(ctx, req, common.Success, "success")
 }
 {{end}}
 
