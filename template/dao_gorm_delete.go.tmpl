@@ -1,6 +1,9 @@
 {{define "dao_gorm_delete.go.tmpl"}}
 // Delete{{.StructName}} is a function to delete a single record from {{.TableName}} table in the {{.DatabaseName}} database
-func Delete{{.StructName}}(ctx context.Context, db *gorm.DB, scopes ...func(*gorm.DB) *gorm.DB) (rowsAffected int64, err error) {
-    return Update{{.StructName}}(ctx, db, &{{.StructName}}{IsDel: 1}, scopes...)
+func Delete{{.StructName}}(ctx context.Context, db *gorm.DB, id int64, scopes ...func(*gorm.DB) *gorm.DB) (rowsAffected int64, err error) {
+    scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+        return db.Where("id = ?", id)
+    })
+    return UpdateMcOpLog(ctx, db, &McOpLog{IsDel: 1}, scopes...)
 }
 {{end}}

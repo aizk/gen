@@ -1,7 +1,7 @@
 {{define "service_delete.go.tmpl"}}
 
 func Delete{{.StructName}}(ctx context.Context, id int64) (err error) {
-
+    _, err = {{.TableName}}.Delete{{.StructName}}(ctx, resource.GormDB, id)
     return
 }
 {{end}}

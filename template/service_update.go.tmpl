@@ -2,16 +2,19 @@
 
 type Update{{.StructName}}Req struct {
     {{range .TableInfo.CodeFields}}
-        {{- .GoFieldName }} {{ .GoFieldType }} `{{.JSONAnnotation}}`
+        {{- .GoFieldName }} {{ .GoFieldType }} `{{.JSONAnnotation}}{{ if .PrimaryKeyArgName }} validate:"required"{{end}}`
     {{end}}
 }
 
 func Update{{.StructName}}(ctx context.Context, req *Update{{.StructName}}Req) (err error) {
+    scope := func(db *gorm.DB) *gorm.DB {
+		return db.Where("id = ?", req.ID)
+	}
     _, err = {{.TableName}}.Update{{.StructName}}(ctx, resource.GormDB, &{{.TableName}}.{{.StructName}}{
         {{range .TableInfo.CodeFields}}
-            {{- .GoFieldName }}: req.{{- .GoFieldName }},
+            {{- if not .PrimaryKeyArgName }}{{- .GoFieldName }}: req.{{- .GoFieldName }},{{end}}
         {{end}}
-    })
+    }, scope)
     return
 }
 {{end}}

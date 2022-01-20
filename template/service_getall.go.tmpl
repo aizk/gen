@@ -8,9 +8,22 @@ type Get{{.StructName}}ListReq struct {
 }
 
 func Get{{.StructName}}List(ctx context.Context, req *Get{{.StructName}}ListReq) (items []*{{.TableName}}.{{.StructName}}, total int64, err error) {
-    // TODO get list
+    scope := func(db *gorm.DB) *gorm.DB {
+		if req.ID != 0 {
+			db = db.Where("id = ?", req.ID)
+		}
+		return db
+	}
 
-    // TODO get count
+	items, err = {{.TableName}}.Get{{.StructName}}List(ctx, resource.GormDB, scope, req.PageParam.PageScope())
+    if err != nil {
+        return
+    }
+
+    total, err = {{.TableName}}.Get{{.StructName}}Count(ctx, resource.GormDB, scope)
+    if err != nil {
+        return
+    }
     return
 }
 {{end}}

@@ -2,14 +2,14 @@
 
 type Create{{.StructName}}Req struct {
     {{range .TableInfo.CodeFields}}
-        {{- .GoFieldName }} {{ .GoFieldType }} `{{.JSONAnnotation}}`
+        {{- if not .PrimaryKeyArgName }}{{- .GoFieldName }} {{ .GoFieldType }} `{{.JSONAnnotation}}`{{end}}
     {{end}}
 }
 
 func Create{{.StructName}}(ctx context.Context, req *Create{{.StructName}}Req) (record *{{.TableName}}.{{.StructName}}, err error) {
     record = &{{.TableName}}.{{.StructName}}{
-        {{range .TableInfo.CodeFields}}
-            {{- .GoFieldName }}: req.{{- .GoFieldName }},
+        {{- range .TableInfo.CodeFields}}
+            {{- if not .PrimaryKeyArgName }}{{- .GoFieldName }}: req.{{- .GoFieldName }},{{end}}
         {{end}}
    }
     _, err = {{.TableName}}.Create{{.StructName}}(ctx, resource.GormDB, record)

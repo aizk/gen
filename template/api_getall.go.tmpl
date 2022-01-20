@@ -2,8 +2,8 @@
 // Get{{.StructName}}List is a function to get a slice of record(s) from {{.TableName}} table in the {{.DatabaseName}} database
 func Get{{.StructName}}List(ctx context.Context, req ghttp.Request) ghttp.Response {
     pageParam := page.NewPageParamByRequest(req)
-
     param := &{{.TableName}}.Get{{.StructName}}ListReq{
+        ID: param.QueryInt64(req, "id"),
         PageParam: pageParam,
     }
 
