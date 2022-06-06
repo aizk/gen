@@ -4,6 +4,6 @@ func Delete{{.StructName}}(ctx context.Context, db *gorm.DB, id int64, scopes ..
     scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
         return db.Where("id = ?", id)
     })
-    return UpdateMcOpLog(ctx, db, &McOpLog{IsDel: 1}, scopes...)
+    return Update{{.StructName}}(ctx, db, &{{.StructName}}{IsDel: 1}, scopes...)
 }
 {{end}}

@@ -224,6 +224,7 @@ func main() {
 	if *sqlTable != "" {
 		dbTables = strings.Split(*sqlTable, ",")
 	} else {
+		// 这里取出了所有的库表
 		schemaTables, err := schema.TableNames(db)
 		if err != nil {
 			fmt.Print(au.Red(fmt.Sprintf("Error in fetching tables information from %s information schema from %s\n", *sqlType, *sqlConnStr)))
@@ -231,10 +232,22 @@ func main() {
 			return
 		}
 		for _, st := range schemaTables {
-			dbTables = append(dbTables, st[1]) // s[0] == sqlDatabase
+			if *sqlType == "mysql" {
+				if st[0] == *sqlDatabase {
+					dbTables = append(dbTables, st[1])
+				}
+			} else {
+				dbTables = append(dbTables, st[1]) // s[0] == sqlDatabase
+			}
 		}
 	}
 
+	if len(dbTables) == 0 {
+		fmt.Print(au.Red(fmt.Sprintf("Find db tables is empty")))
+		os.Exit(1)
+	}
+
+	// 删除传入的 '
 	if strings.HasPrefix(*modelNamingTemplate, "'") && strings.HasSuffix(*modelNamingTemplate, "'") {
 		*modelNamingTemplate = strings.TrimSuffix(*modelNamingTemplate, "'")
 		*modelNamingTemplate = strings.TrimPrefix(*modelNamingTemplate, "'")
@@ -242,10 +255,12 @@ func main() {
 
 	var excludeDbTables []string
 
+	// 排除在外的表
 	if *excludeSQLTables != "" {
 		excludeDbTables = strings.Split(*excludeSQLTables, ",")
 	}
 
+	// 初始化配置
 	conf := dbmeta.NewConfig(LoadTemplate)
 	initialize(conf)
 
